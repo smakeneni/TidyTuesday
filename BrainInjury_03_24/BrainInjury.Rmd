@@ -1,0 +1,50 @@
+---
+title: "BrainInjury"
+output:
+  orientation: rows
+  flexdashboard::flex_dashboard: null
+  source_code: embed
+---
+
+```{r setup, include=FALSE,warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(ggpubr)
+library(scales)
+library(ggthemes)
+library(plotly)
+tbi_age <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-24/tbi_age.csv')
+tbi_year <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-24/tbi_year.csv')
+```
+First tab
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Number of brain injuries and number of deaths 
+
+```{r warning=FALSE,message=FALSE}
+
+total_injuries <- tbi_year %>% filter(!is.na(number_est)) %>% group_by(year,injury_mechanism) %>% summarize(total=sum(number_est)) %>% ggplot(aes(x=year,y=total,group=injury_mechanism))+ geom_point(aes(color=injury_mechanism))+geom_line(aes(color=injury_mechanism))
+
+#total_injuries <- total_injuries+theme_classic()+xlab("")+ylab("")+scale_x_continuous(breaks=seq(2006,2014,1))+scale_y_continuous(breaks=seq(0,2000000,250000),labels=comma)+theme_wsj(base_size = 10)+theme(legend.title = element_blank())
+
+#l<-list(font=list(family="sans-serif",size=10,color="#000"),bgcolor="#E2E2E2",bordercolor="#FFFFFF",borderwidth=2,orientation="h",x=0,y=-0.05)
+
+#total_deaths <- tbi_year %>% filter(!is.na(number_est)) %>% filter(type=="Deaths") %>% group_by(year,type,injury_mechanism) %>% summarize(total=sum(number_est)) %>% ggplot(aes(x=year,y=total,group=injury_mechanism))+geom_point(aes(color=injury_mechanism))+ geom_line(aes(color=injury_mechanism))
+
+#total_deaths <- total_deaths+xlab("")+ylab("")+theme_wsj(base_size = 10)+theme(legend.title = element_blank())
+
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+Writing this text to see how this will work
+
+
+
+
+
