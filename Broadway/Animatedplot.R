@@ -25,4 +25,4 @@ top10_plot <- ggplot(grosses_top10,aes(rank,group=show,fill=factor(show),color=f
 
 animated_plot <- top10_plot+ transition_states(year,transition_length = 4,state_length = 1.5)+ view_follow(fixed_x=TRUE)+labs(title="Top 10 broadway gross incomes: {closest_state}",caption = "Total gross in Millions USD")
 
-animate(animated_plot,200,fps=20,width=1200,height=1000,renderer=gifski_renderer("/Users/spandana/Desktop/Data_science_projects/TidyTuesday/Broadway/anim.gif"))
+animate(animated_plot,200,fps=20,width=1200,height=1000,renderer=gifski_renderer("anim.gif"))
