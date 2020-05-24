@@ -1,1 +1,2 @@
-Created a static dashboard summarizing statistics 
+Created animated plots using plotly
+
