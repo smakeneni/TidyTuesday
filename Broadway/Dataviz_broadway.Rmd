@@ -1,0 +1,18 @@
+---
+title: "Broadway yearly grosses"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE,warning=FALSE)
+library(tidyverse)
+library(scales)
+library(lubridate)
+library(gganimate)
+```
+
+
+![](/Users/spandana/Desktop/Data_science_projects/TidyTuesday/Broadway/anim.gif)
+
+[Data source](https://www.playbill.com/grosses)
+[Code](https:github.com)
