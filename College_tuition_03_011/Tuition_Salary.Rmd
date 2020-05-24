@@ -1,0 +1,221 @@
+---
+title: "US College tuition and salary potential"
+author: "Spandana Makeneni"
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    source_code: embed
+---
+
+
+```{r global, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(scales)
+library(maps)
+library(ggthemes)
+
+#Reading input files
+tuition_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/tuition_cost.csv')
+salary_potential <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/salary_potential.csv')
+
+names(salary_potential)[names(salary_potential)=="name"] <- "Name"
+names(tuition_cost)[names(tuition_cost)=="name"] <- "Name"
+
+#filtering for colleges with 4 year degree programs 
+tc_4year <- tuition_cost %>% filter(degree_length=="4 Year") %>% filter(type=="Private"|type=="Public") %>% select(Name,state,state_code,type,room_and_board,in_state_tuition,out_of_state_tuition)
+names(tc_4year) <- c("Name","state","state_code","type","Roomandboard","Instate","Outstate")
+tc_4year <- na.omit(tc_4year)
+
+#grouping by state to calculate average tuition and salary potential
+avg_tc_bystate <- tc_4year %>% group_by(state,type) %>% summarize(outstate=mean(Outstate))
+avg_tc_bystate <- spread(avg_tc_bystate,type,outstate)
+avg_sp_bystate <- salary_potential %>% group_by(state_name) %>% summarize(mean_early_pay=mean(early_career_pay),mean_mid_pay=mean(mid_career_pay))
+names(avg_sp_bystate)[names(avg_sp_bystate)=="state_name"]<-"state"
+avg_sp_bystate$state <-  gsub("-"," ",avg_sp_bystate$state)
+
+#combining tuition and salary potential
+avg_tc_sp_bystate <- inner_join(avg_tc_bystate,avg_sp_bystate,"state")
+avg_tc_sp_bystate <- as.data.frame(avg_tc_sp_bystate)
+
+tc_sp <- inner_join(salary_potential,tc_4year,"Name")
+```
+
+State by State
+=======================================================================
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+### Select a state
+
+```{r}
+  selectInput('xcol', label='State', avg_tc_sp_bystate$state)
+```  
+
+Note that salary potential information is not available for all colleges. Selecting a state will update all three charts. In some states, the list of most and least expensive universities overlap.
+
+### Select a college 
+
+```{r}
+state_names <- reactive({
+    tc_4year %>% filter(state==input$xcol)
+  })
+
+renderUI({selectInput('univname',label='College name',choices=state_names()$Name)})
+```
+
+Selecting a college will update the tuition information table and will provide tuition information for the selected college
+
+Row
+-----------------------------------------------------------------------
+
+### Avg. Tuition (Private) 
+
+```{r}
+pri_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"Private"]})
+renderValueBox({
+private <- formatC(pri_temp(),digits=0,format="f",big.mark=",")
+valueBox(value=ifelse(private!=0,private,"Not available"),icon="dollar-sign",color=ifelse(private>=50000,"warning","primary"))
+})
+```
+
+### Avg. Tuition (Public) 
+
+```{r}
+pub_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"Public"]})
+renderValueBox({
+public <- formatC(pub_temp(),digits=0,format="f",big.mark=",")
+valueBox(value=public,color=ifelse(public>=30000,"warning","primary"))
+})
+```
+
+### Avg. Early career Pay 
+
+```{r}
+ep_temp <- reactive({round(avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"mean_early_pay"],digits=0)})
+renderValueBox({
+ep <- formatC(ep_temp(),digits=0,format="f",big.mark=",")
+valueBox(value=ep,color=ifelse(ep<=49999,"warning","primary"))
+})
+```
+
+### Avg. Mid career pay 
+
+```{r}
+mp_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"mean_mid_pay"]})
+renderValueBox({
+mp <- formatC(mp_temp(),digits=0,format="f",big.mark=",")
+valueBox(value=mp)
+})
+```
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### Pay vs. tuition 
+```{r}
+tc_sp_state <- reactive({tc_sp %>% filter(state==input$xcol)}) 
+  renderPlotly({
+    tc_esp_plot <- tc_sp %>% filter(state==input$xcol) %>% 
+          ggplot(aes(Name=Name))+geom_segment(aes(x=Outstate,xend=Outstate,y=early_career_pay,yend=mid_career_pay),color="gray")+geom_point(aes(x=Outstate,y=early_career_pay,color="Early career"),size=3)+geom_point(aes(x=Outstate,mid_career_pay,color="Mid career"),size=3)+theme_classic()+xlab("Out of state tuition")+ylab("Pay")+ scale_color_manual(values=c(rgb(0.2,0.7,0.1,0.5),rgb(0.7,0.2,0.1,0.5)))+theme(legend.title=element_blank())
+
+ggplotly(tc_esp_plot,tooltip=c("Name","x","y"))    
+
+  })
+```
+
+### Most Expensive Universities 
+```{r}
+top10 <- reactive({
+  tc_4year %>% filter(state==input$xcol) %>% arrange(desc(Outstate)) %>% select(Name,type,Roomandboard,Instate,Outstate) %>% head(n=10) })
+
+renderPlotly({
+    top10_plot <- ggplot(top10(),aes(x=Outstate,y=reorder(Name,Outstate),color=type,Name=Name))+
+          geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+theme_classic()+theme(legend.title=element_blank())+ coord_cartesian(xlim=c(min(top10()$Outstate),max(top10()$Outstate)))
+
+ggplotly(top10_plot,tooltip=c("Name","x","y")) 
+
+  })
+```
+
+### Least Expensive Universities
+````{r}
+bottom10 <- reactive({
+  tc_4year %>% filter(state==input$xcol) %>% select(Name,type,Roomandboard,Instate,Outstate) %>% arrange(Outstate) %>% head(n=10)})
+
+renderPlotly({
+    bottom10_plot <- ggplot(bottom10(),aes(x=Outstate,y=reorder(Name,Outstate),color=type))+
+          geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+theme_classic()+ theme(legend.title=element_blank())+ coord_cartesian(xlim=c(min(bottom10()$Outstate),max(bottom10()$Outstate)))
+
+ggplotly(bottom10_plot) 
+
+  })
+
+```
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+### College tuition information (Select college in the drop down) 
+```{r}
+college_name <- reactive({tc_4year %>% filter(Name==input$univname) %>% select(Name,Roomandboard,Instate,Outstate)})
+renderTable({college_name()},align="c")
+```
+
+> Tuition data : https://www.chronicle.com/interactives/tuition-and-fees
+> Salary data: https://www.payscale.com/college-salary-report
+
+National data
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Average out of state college tuition fees by state (Private Universities)
+```{r}
+tuition_pri_pub <- tc_4year %>% group_by(state,state_code,type) %>% summarize(tuition=mean(Outstate)) 
+tuition_pri_pub$state <- tolower(tuition_pri_pub$state)
+tuition_pri_pub <- as.data.frame(tuition_pri_pub)
+wyoming.private <- data.frame("wyoming","WY","Private",0)
+names(wyoming.private) <- c("state","state_code","type","tuition")
+tuition_pri_pub <- rbind(tuition_pri_pub,wyoming.private)
+states_map <- map_data('state')
+
+plot_maps <- function(df){
+  g <- list(scope='usa',projection=list(type='albers usa',showlakes=FALSE))
+  p <- plot_geo(df,locationmode='USA-states') %>%
+       add_trace(z=df$tuition,locations=df$state_code,color=df$tuition,colors="Blues") %>%
+       layout(geo=g)
+  return(p)
+}
+
+itc_pri_4year <- tuition_pri_pub %>% filter(type=="Private")
+plot_maps(itc_pri_4year) %>% colorbar(title="USD",x=-0.05,y=0.6)
+```
+
+### Average out of state college tuition fees by state (Public Universities)
+```{r}
+itc_pub_4year <- tuition_pri_pub %>% filter(type=="Public")
+plot_maps(itc_pub_4year) %>% colorbar(title="USD",x=-0.05,y=0.7)
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Early career pay vs. tuition
+```{r}
+ec_tc_nation <- tc_sp %>% ggplot(aes(x=Outstate,y=early_career_pay,Name=Name))+geom_point(aes(color=type))+theme_classic()+xlab("Out of state tuition")+ylab("")+theme(legend.title=element_blank())
+
+ggplotly(ec_tc_nation,tooltip=c("Name","x","y"))
+```
+
+### Mid career pay vs. tuition
+```{r}
+mc_tc_nation <- tc_sp %>% ggplot(aes(x=Outstate,y=mid_career_pay,Name=Name))+geom_point(aes(color=type))+theme_classic()+xlab("Out of state tuition")+ylab("")+theme(legend.title = element_blank())
+
+ggplotly(mc_tc_nation,tooltip=c("Name","x","y"))
+```
