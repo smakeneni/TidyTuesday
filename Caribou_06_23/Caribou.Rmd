@@ -1,0 +1,35 @@
+---
+title: "Tracking Caribou"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+<style type="text/css">
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+  text-align: center;
+}
+
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkRed;
+  text-align: center;
+}
+
+.btn {
+    background-color: #e6f0ff;
+    border-radius: 5px; padding: 5px;
+}
+</style>
+
+<center>
+![](/Users/spandana/Desktop/Data_science_projects/TidyTuesday/Cariboupatterns/Caribou_migration.gif)
+</center>
+
+[Data source](https://www.movebank.org/cms/movebank-content/about-movebank)  
+[Code](https://github.com/smakeneni/TidyTuesday/blob/master/Caribou_06_23/Caribou_animated.R)
