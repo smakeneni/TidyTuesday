@@ -26,9 +26,9 @@ locations <- locations %>% mutate(date= date(timestamp)) %>% mutate(year=year(ti
 
 #Creating the plot
 migration_by_season <- locations %>% group_by(year) %>% arrange(year) %>% 
-filter(year>=2001) %>% ggplot(aes(x=longitude,y=latitude)) +geom_point(aes(fill=study_site))+ 
+filter(year>=2001) %>% ggplot(aes(x=longitude,y=latitude)) +geom_point(aes(color=study_site))+ 
     transition_time(date)+labs(title="Caribou migration patterns in British Columbia between 2001-2016",
-    subtitle="Year:{frame_time}",fill="Location",x="Longitude",y="Latitude")+shadow_wake(wake_length = 0.1,alpha=FALSE)
+    subtitle="Year:{frame_time}",color="Location",x="Longitude",y="Latitude")+shadow_wake(wake_length = 0.1,alpha=FALSE)
 
 #Saving the plot
 animate(migration_by_season,renderer=gifski_renderer("Caribou_migration.gif",width=3000,height=6000))
