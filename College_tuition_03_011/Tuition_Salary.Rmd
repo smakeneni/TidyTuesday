@@ -8,9 +8,10 @@ output:
     source_code: embed
 ---
 
-
 ```{r global, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+
+#Loading libraries required for generating this dashboard 
 library(flexdashboard)
 library(tidyverse)
 library(plotly)
@@ -18,21 +19,27 @@ library(scales)
 library(maps)
 library(ggthemes)
 
-#Reading input files
+#Reading input files (Thanks to Tidy tuesday organizers for this data)
 tuition_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/tuition_cost.csv')
 salary_potential <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/salary_potential.csv')
 
+#Changing "names" column to Name in both the data frames 
 names(salary_potential)[names(salary_potential)=="name"] <- "Name"
 names(tuition_cost)[names(tuition_cost)=="name"] <- "Name"
 
-#filtering for colleges with 4 year degree programs 
+#filtering for colleges with 4 year degree programs and storing them in a new dataframe "tc_4year"
 tc_4year <- tuition_cost %>% filter(degree_length=="4 Year") %>% filter(type=="Private"|type=="Public") %>% select(Name,state,state_code,type,room_and_board,in_state_tuition,out_of_state_tuition)
+
+#adding column names
 names(tc_4year) <- c("Name","state","state_code","type","Roomandboard","Instate","Outstate")
+
+#omitting all the missing values for now
 tc_4year <- na.omit(tc_4year)
 
-#grouping by state to calculate average tuition and salary potential
+#grouping by state to calculate average tuition and salary potential - storing the avg values in a new dataframe avg_tc_bystate and avg_sp_bystate (tc=tuitioncost,sp=salary potential)
 avg_tc_bystate <- tc_4year %>% group_by(state,type) %>% summarize(outstate=mean(Outstate))
 avg_tc_bystate <- spread(avg_tc_bystate,type,outstate)
+
 avg_sp_bystate <- salary_potential %>% group_by(state_name) %>% summarize(mean_early_pay=mean(early_career_pay),mean_mid_pay=mean(mid_career_pay))
 names(avg_sp_bystate)[names(avg_sp_bystate)=="state_name"]<-"state"
 avg_sp_bystate$state <-  gsub("-"," ",avg_sp_bystate$state)
@@ -43,7 +50,7 @@ avg_tc_sp_bystate <- as.data.frame(avg_tc_sp_bystate)
 
 tc_sp <- inner_join(salary_potential,tc_4year,"Name")
 ```
-
+<!--Creating the sidebar for the dashboard, side bar consists of a drop down for selecting a state and a second drop down for selecting colleges/univs within the state-->
 State by State
 =======================================================================
 
@@ -51,30 +58,25 @@ Inputs {.sidebar}
 -----------------------------------------------------------------------
 
 ### Select a state
-
 ```{r}
   selectInput('xcol', label='State', avg_tc_sp_bystate$state)
 ```  
-
 Note that salary potential information is not available for all colleges. Selecting a state will update all three charts. In some states, the list of most and least expensive universities overlap.
 
 ### Select a college 
-
 ```{r}
 state_names <- reactive({
     tc_4year %>% filter(state==input$xcol)
   })
-
 renderUI({selectInput('univname',label='College name',choices=state_names()$Name)})
 ```
-
 Selecting a college will update the tuition information table and will provide tuition information for the selected college
 
+<!--Creating the top row with four value boxes -->
 Row
 -----------------------------------------------------------------------
 
 ### Avg. Tuition (Private) 
-
 ```{r}
 pri_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"Private"]})
 renderValueBox({
@@ -84,7 +86,6 @@ valueBox(value=ifelse(private!=0,private,"Not available"),icon="dollar-sign",col
 ```
 
 ### Avg. Tuition (Public) 
-
 ```{r}
 pub_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"Public"]})
 renderValueBox({
@@ -104,7 +105,6 @@ valueBox(value=ep,color=ifelse(ep<=49999,"warning","primary"))
 ```
 
 ### Avg. Mid career pay 
-
 ```{r}
 mp_temp <- reactive({avg_tc_sp_bystate[avg_tc_sp_bystate$state==input$xcol,"mean_mid_pay"]})
 renderValueBox({
@@ -113,6 +113,7 @@ valueBox(value=mp)
 })
 ```
 
+<!--Creating the main plot and the plots in the two tabs, first plot shows the pay vs tuition for the selected state, second and third plot show the most and least expensive univs -->
 Row {.tabset}
 -----------------------------------------------------------------------
 
@@ -120,43 +121,45 @@ Row {.tabset}
 ```{r}
 tc_sp_state <- reactive({tc_sp %>% filter(state==input$xcol)}) 
   renderPlotly({
-    tc_esp_plot <- tc_sp %>% filter(state==input$xcol) %>% 
-          ggplot(aes(Name=Name))+geom_segment(aes(x=Outstate,xend=Outstate,y=early_career_pay,yend=mid_career_pay),color="gray")+geom_point(aes(x=Outstate,y=early_career_pay,color="Early career"),size=3)+geom_point(aes(x=Outstate,mid_career_pay,color="Mid career"),size=3)+theme_classic()+xlab("Out of state tuition")+ylab("Pay")+ scale_color_manual(values=c(rgb(0.2,0.7,0.1,0.5),rgb(0.7,0.2,0.1,0.5)))+theme(legend.title=element_blank())
+    tc_esp_plot <- tc_sp %>% filter(state==input$xcol) %>%  ggplot(aes(Name=Name))+geom_segment(aes(x=Outstate,xend=Outstate,y=early_career_pay,yend=mid_career_pay),color="gray")+
+geom_point(aes(x=Outstate,y=early_career_pay,color="Early career"),size=3)+geom_point(aes(x=Outstate,mid_career_pay,color="Mid career"),size=3)+
+theme_classic()+xlab("Out of state tuition")+ylab("Pay")+ 
+scale_color_manual(values=c(rgb(0.2,0.7,0.1,0.5),rgb(0.7,0.2,0.1,0.5)))+theme(legend.title=element_blank())
 
 ggplotly(tc_esp_plot,tooltip=c("Name","x","y"))    
-
   })
 ```
 
 ### Most Expensive Universities 
 ```{r}
 top10 <- reactive({
-  tc_4year %>% filter(state==input$xcol) %>% arrange(desc(Outstate)) %>% select(Name,type,Roomandboard,Instate,Outstate) %>% head(n=10) })
+tc_4year %>% filter(state==input$xcol) %>% arrange(desc(Outstate)) %>% select(Name,type,Roomandboard,Instate,Outstate) %>% head(n=10) })
 
 renderPlotly({
     top10_plot <- ggplot(top10(),aes(x=Outstate,y=reorder(Name,Outstate),color=type,Name=Name))+
-          geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+theme_classic()+theme(legend.title=element_blank())+ coord_cartesian(xlim=c(min(top10()$Outstate),max(top10()$Outstate)))
+          geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+
+          theme_classic()+theme(legend.title=element_blank())+coord_cartesian(xlim=c(min(top10()$Outstate),max(top10()$Outstate)))
 
 ggplotly(top10_plot,tooltip=c("Name","x","y")) 
-
   })
 ```
 
 ### Least Expensive Universities
-````{r}
+```{r}
 bottom10 <- reactive({
   tc_4year %>% filter(state==input$xcol) %>% select(Name,type,Roomandboard,Instate,Outstate) %>% arrange(Outstate) %>% head(n=10)})
 
 renderPlotly({
     bottom10_plot <- ggplot(bottom10(),aes(x=Outstate,y=reorder(Name,Outstate),color=type))+
-          geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+theme_classic()+ theme(legend.title=element_blank())+ coord_cartesian(xlim=c(min(bottom10()$Outstate),max(bottom10()$Outstate)))
+                     geom_segment(aes(x=0,xend=Outstate,y=reorder(Name,Outstate),yend=Name))+geom_point(size=2)+xlab("")+ylab("")+theme_classic()+ 
+                     theme(legend.title=element_blank())+ coord_cartesian(xlim=c(min(bottom10()$Outstate),max(bottom10()$Outstate)))
 
 ggplotly(bottom10_plot) 
 
   })
-
 ```
 
+<!--Creating the table below the plot-->
 Row {data-height=200}
 -----------------------------------------------------------------------
 
@@ -169,6 +172,8 @@ renderTable({college_name()},align="c")
 > Tuition data : https://www.chronicle.com/interactives/tuition-and-fees
 > Salary data: https://www.payscale.com/college-salary-report
 
+
+<!-- Creating the second tab with national data-->
 National data
 =======================================================================
 
